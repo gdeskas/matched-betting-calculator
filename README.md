@@ -5,13 +5,15 @@ Built for the 2026 World Cup matched betting plan.
 
 ## Features
 
-- **Calculator** for three bet types: qualifying bet, free bet SNR (stake not returned), free bet SR (stake returned)
-- **Persistent log** in SQLite — survives restarts, easy to back up (just copy `matched_bets.db`)
-- **Summary** with per-bookie and per-event breakdowns, cumulative profit chart
-- **CSV export** for analysis in pandas / Excel / wherever
-- **Filters** on the log view by bookie, type, event search
+- **Calculator** — computes lay stake, liability, and guaranteed profit/loss for three bet types:
+  - Qualifying bet (stake returned)
+  - Free bet SNR (stake not returned) — the standard UK bookie offer
+  - Free bet SR (stake returned)
+- **Log** — record bets directly from the calculator with bookie, event, selection, and notes; filter by bookie, type, or event; export to CSV
+- **Summary** — total profit, per-bookie and per-event breakdowns, cumulative profit chart over time
+- **Persistent storage** — SQLite database survives restarts; back up by copying a single file
 
-## Setup (one-time)
+## Setup
 
 Requires Python 3.10+. From the project directory:
 
@@ -28,71 +30,81 @@ source .venv/bin/activate
 streamlit run app.py
 ```
 
-Opens at http://localhost:8501. The database `matched_bets.db` is created
-automatically on first run in the same folder as `app.py`.
+Opens at http://localhost:8501. The database `matched_bets.db` is created automatically on first run.
 
-## Accessing from your phone on the same network
+### Access from your phone on the same network
 
 ```bash
 streamlit run app.py --server.address 0.0.0.0
 ```
 
-Then visit `http://<your-mac-ip>:8501` from any device on your home network.
-Useful for logging bets quickly from your phone while you're placing them.
+Then visit `http://<your-mac-ip>:8501` from any device on your home network — useful for logging bets quickly while placing them.
 
 ## The maths
 
-For qualifying bets and stake-returned free bets:
+**Qualifying bets and stake-returned free bets:**
 
-    lay_stake = (stake × back_odds) / (lay_odds − commission)
+```
+lay_stake = (stake × back_odds) / (lay_odds − commission)
+```
 
-For stake-not-returned free bets (the standard UK bookie offer):
+**Stake-not-returned free bets:**
 
-    lay_stake = (stake × (back_odds − 1)) / (lay_odds − commission)
+```
+lay_stake = (stake × (back_odds − 1)) / (lay_odds − commission)
+```
 
-Liability is `lay_stake × (lay_odds − 1)`. The guaranteed profit is the
-minimum of the back-wins and lay-wins outcomes.
+Liability is `lay_stake × (lay_odds − 1)`. Guaranteed profit is the minimum of the back-wins and lay-wins outcomes.
 
 ## Backup
 
-The database is a single SQLite file. To back up:
+The entire database is a single SQLite file:
 
 ```bash
 cp matched_bets.db matched_bets_backup_$(date +%Y%m%d).db
 ```
 
-Or restore from a CSV export with the Log tab's import (not yet built — let
-me know if you want it).
+You can also export any view to CSV from the Log tab.
 
-## Schema
-
-```sql
-CREATE TABLE bets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT,
-    bet_date TEXT,
-    bookie TEXT,
-    event TEXT,
-    selection TEXT,
-    bet_type TEXT,        -- 'qualifying' | 'freebet_snr' | 'freebet_sr'
-    stake REAL,
-    back_odds REAL,
-    lay_odds REAL,
-    lay_stake REAL,
-    liability REAL,
-    commission REAL,      -- decimal, e.g. 0.02 for 2%
-    profit_if_back_wins REAL,
-    profit_if_lay_wins REAL,
-    guaranteed_profit REAL,
-    notes TEXT,
-    settled INTEGER,
-    actual_outcome TEXT
-);
-```
-
-Easy to query directly:
+## Querying the database directly
 
 ```python
 import sqlite3, pandas as pd
 df = pd.read_sql("SELECT * FROM bets", sqlite3.connect("matched_bets.db"))
 ```
+
+## Database schema
+
+```sql
+CREATE TABLE bets (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at           TEXT NOT NULL,
+    bet_date             TEXT NOT NULL,
+    bookie               TEXT NOT NULL,
+    event                TEXT NOT NULL,
+    selection            TEXT NOT NULL,
+    bet_type             TEXT NOT NULL,  -- 'qualifying' | 'freebet_snr' | 'freebet_sr'
+    stake                REAL NOT NULL,
+    back_odds            REAL NOT NULL,
+    lay_odds             REAL NOT NULL,
+    lay_stake            REAL NOT NULL,
+    liability            REAL NOT NULL,
+    commission           REAL NOT NULL,  -- decimal, e.g. 0.02 for 2%
+    profit_if_back_wins  REAL NOT NULL,
+    profit_if_lay_wins   REAL NOT NULL,
+    guaranteed_profit    REAL NOT NULL,
+    retention_pct        REAL,
+    notes                TEXT,
+    settled              INTEGER DEFAULT 0,
+    actual_outcome       TEXT
+);
+```
+
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `streamlit` | Web UI |
+| `pandas` | Data handling and display |
+
+SQLite is part of the Python standard library — no extra install needed.
