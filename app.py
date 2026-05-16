@@ -189,14 +189,14 @@ def page_calculator() -> None:
         lay_odds = st.number_input("Lay odds", min_value=1.01, value=2.04, step=0.01, format="%.2f")
 
     result = calculate(bet_type, stake, back_odds, lay_odds, commission_pct / 100)
-    spread = round(lay_odds - back_odds, 2)
+    spread = round((lay_odds - back_odds) / back_odds * 100, 2)
 
     st.divider()
 
     m1, m2, m3 = st.columns(3)
     m1.metric("Lay stake", f"£{result.lay_stake:.2f}")
     m2.metric("Liability", f"£{result.liability:.2f}")
-    m3.metric("Spread", f"{spread:+.2f}")
+    m3.metric("Spread", f"{spread:+.2f}%")
 
     m3, m4 = st.columns(2)
     m3.metric("Profit if back wins", f"£{result.profit_if_back_wins:+.2f}")
@@ -304,7 +304,7 @@ def page_log() -> None:
         "liability": "Liability",
         "guaranteed_profit": "Profit",
     })
-    display.insert(display.columns.get_loc("Lay £"), "Spread", (display["Lay"] - display["Back"]).round(2))
+    display.insert(display.columns.get_loc("Lay £"), "Spread %", ((display["Lay"] - display["Back"]) / display["Back"] * 100).round(2))
     display["Type"] = display["Type"].map({
         "qualifying": "Qual", "freebet_snr": "FB-SNR", "freebet_sr": "FB-SR"
     }).fillna(display["Type"])
@@ -315,7 +315,7 @@ def page_log() -> None:
         use_container_width=True,
         column_config={
             "Stake": st.column_config.NumberColumn(format="£%.2f"),
-            "Spread": st.column_config.NumberColumn(format="+%.2f"),
+            "Spread %": st.column_config.NumberColumn(format="+%.2f%%"),
             "Lay £": st.column_config.NumberColumn(format="£%.2f"),
             "Liability": st.column_config.NumberColumn(format="£%.2f"),
             "Profit": st.column_config.NumberColumn(format="£%.2f"),
