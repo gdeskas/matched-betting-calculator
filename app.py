@@ -377,9 +377,15 @@ def page_summary() -> None:
         .sort_values("profit", ascending=False)
         .reset_index()
     )
-    by_bookie["retention"] = (by_bookie["profit"] / by_bookie["stake"] * 100).round(1)
+    fb = df[df["bet_type"] != "qualifying"]
+    fb_by_bookie = fb.groupby("bookie").agg(
+        fb_stake=("stake", "sum"),
+        fb_profit=("guaranteed_profit", "sum"),
+    )
+    by_bookie = by_bookie.join(fb_by_bookie, on="bookie")
+    by_bookie["retention"] = (by_bookie["fb_profit"] / by_bookie["fb_stake"] * 100).round(1)
     st.dataframe(
-        by_bookie,
+        by_bookie.drop(columns=["fb_stake", "fb_profit"]),
         use_container_width=True,
         column_config={
             "stake": st.column_config.NumberColumn(format="£%.2f"),
