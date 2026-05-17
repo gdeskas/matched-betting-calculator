@@ -43,6 +43,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TEXT NOT NULL,
                 bet_date TEXT NOT NULL,
+                person TEXT NOT NULL DEFAULT 'George',
                 bookie TEXT NOT NULL,
                 event TEXT NOT NULL,
                 selection TEXT NOT NULL,
@@ -63,6 +64,10 @@ def init_db() -> None:
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE bets ADD COLUMN person TEXT NOT NULL DEFAULT 'George'")
+        except sqlite3.OperationalError:
+            pass
 
 
 def insert_bet(record: dict) -> int:
@@ -232,6 +237,7 @@ def page_calculator() -> None:
                 record = {
                     "created_at": datetime.now().isoformat(timespec="seconds"),
                     "bet_date": bet_date.isoformat(),
+                    "person": "George",
                     "bookie": bookie.strip(),
                     "event": event.strip(),
                     "selection": selection.strip() or "—",
@@ -261,19 +267,23 @@ def page_log() -> None:
         st.info("No bets logged yet. Use the Calculator tab to add some.")
         return
 
-    col_f1, col_f2, col_f3 = st.columns(3)
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     with col_f1:
-        bookie_filter = st.multiselect("Filter bookie", sorted(df["bookie"].unique()))
+        person_filter = st.multiselect("Filter person", sorted(df["person"].unique()))
     with col_f2:
+        bookie_filter = st.multiselect("Filter bookie", sorted(df["bookie"].unique()))
+    with col_f3:
         type_filter = st.multiselect(
             "Filter type",
             sorted(df["bet_type"].unique()),
             format_func=lambda x: BET_TYPE_LABELS.get(x, x),
         )
-    with col_f3:
+    with col_f4:
         event_filter = st.text_input("Search event/selection")
 
     filtered = df.copy()
+    if person_filter:
+        filtered = filtered[filtered["person"].isin(person_filter)]
     if bookie_filter:
         filtered = filtered[filtered["bookie"].isin(bookie_filter)]
     if type_filter:
@@ -287,12 +297,13 @@ def page_log() -> None:
 
     display = filtered[
         [
-            "id", "bet_date", "bookie", "event", "selection",
+            "id", "bet_date", "person", "bookie", "event", "selection",
             "bet_type", "stake", "back_odds", "lay_odds",
             "lay_stake", "liability", "guaranteed_profit",
         ]
     ].rename(columns={
         "bet_date": "Date",
+        "person": "Person",
         "bookie": "Bookie",
         "event": "Event",
         "selection": "Selection",
@@ -352,6 +363,11 @@ def page_summary() -> None:
     if df.empty:
         st.info("No data yet.")
         return
+
+    person_options = ["All", "George", "Emma"]
+    person_sel = st.selectbox("Person", person_options, index=0)
+    if person_sel != "All":
+        df = df[df["person"] == person_sel]
 
     total_profit = df["guaranteed_profit"].sum()
     qual_profit = df.loc[df["bet_type"] == "qualifying", "guaranteed_profit"].sum()
