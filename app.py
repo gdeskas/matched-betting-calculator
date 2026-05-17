@@ -385,10 +385,12 @@ def page_summary() -> None:
     c5.metric("Total staked", f"£{total_stake:.2f}")
     c6.metric("Peak liability sum", f"£{total_liability:.2f}")
 
+    fb = df[df["bet_type"] != "qualifying"]
+
     st.divider()
-    st.markdown("**By bookie**")
+    st.markdown("**By bookie** (free bets only)")
     by_bookie = (
-        df.groupby("bookie")
+        fb.groupby("bookie")
         .agg(
             bets=("id", "count"),
             stake=("stake", "sum"),
@@ -397,15 +399,9 @@ def page_summary() -> None:
         .sort_values("profit", ascending=False)
         .reset_index()
     )
-    fb = df[df["bet_type"] != "qualifying"]
-    fb_by_bookie = fb.groupby("bookie").agg(
-        fb_stake=("stake", "sum"),
-        fb_profit=("guaranteed_profit", "sum"),
-    )
-    by_bookie = by_bookie.join(fb_by_bookie, on="bookie")
-    by_bookie["retention"] = (by_bookie["fb_profit"] / by_bookie["fb_stake"] * 100).round(1)
+    by_bookie["retention"] = (by_bookie["profit"] / by_bookie["stake"] * 100).round(1)
     st.dataframe(
-        by_bookie.drop(columns=["fb_stake", "fb_profit"]),
+        by_bookie,
         use_container_width=True,
         column_config={
             "stake": st.column_config.NumberColumn(format="£%.2f"),
@@ -415,9 +411,9 @@ def page_summary() -> None:
         hide_index=True,
     )
 
-    st.markdown("**By event**")
+    st.markdown("**By event** (free bets only)")
     by_event = (
-        df.groupby("event")
+        fb.groupby("event")
         .agg(
             bets=("id", "count"),
             profit=("guaranteed_profit", "sum"),
